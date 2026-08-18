@@ -3,6 +3,7 @@ import pandas as pd
 import calendar
 import json
 import os
+import io # ADICIONADO
 from datetime import datetime
 from collections import defaultdict
 from fpdf import FPDF
@@ -12,8 +13,8 @@ NOME_SUPERMERCADO = "Supermercado Economico"
 NOME_CRIADOR = "Felipe Silva"
 CARGO_CRIADOR = "Responsável Setor T.I"
 ARQUIVO_DADOS = "dados_escala.json"
-COR_PRINCIPAL = "#FF6F00" # Laranja
-COR_FUNDO = "#FFFFFF" # Branco
+COR_PRINCIPAL = "#FF6F00"
+COR_FUNDO = "#FFFFFF"
 
 FUNCOES_PADRAO = ["Caixa", "Repositor", "Açougue", "Padaria", "Hortifruti", "Atendimento", "Estoque", "Fiscal", "Gerente"]
 DIAS_SEMANA = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
@@ -22,7 +23,6 @@ HORAS_POR_TURNO = 8
 MAX_DIAS_SEGUIDOS = 6
 MOTIVOS_PADRAO = ["Troca entre funcionários", "Atestado Médico", "Folga", "Falta", "Férias", "Outro"]
 
-# FUNÇÕES SALVAR E CARREGAR
 def salvar_dados():
     dados = {
         "funcionarios": st.session_state.funcionarios,
@@ -48,14 +48,12 @@ def carregar_dados():
     else:
         st.warning("Nenhum arquivo de dados encontrado.")
 
-# INICIALIZAR SESSION STATE
 if 'funcionarios' not in st.session_state: st.session_state.funcionarios = {}
 if 'modelo_dia' not in st.session_state: st.session_state.modelo_dia = {}
 if 'feriados' not in st.session_state: st.session_state.feriados = []
 if 'cargos' not in st.session_state: st.session_state.cargos = FUNCOES_PADRAO.copy()
 if 'historico_trocas' not in st.session_state: st.session_state.historico_trocas = []
 
-# TEMA LARANJA E BRANCO
 st.set_page_config(page_title=f"Escala - {NOME_SUPERMERCADO}", layout="wide")
 st.markdown(f"""
     <style>
@@ -71,7 +69,6 @@ st.title(f"🛒 Gerador de Escala MENSAL")
 st.subheader(f"{NOME_SUPERMERCADO}")
 st.caption(f"**Desenvolvido por:** {NOME_CRIADOR} - {CARGO_CRIADOR}")
 
-# BARRA DE SALVAR/CARREGAR NO TOPO
 col1, col2, col3 = st.columns([1,1,4])
 with col1:
     if st.button("💾 Salvar Dados"):
@@ -82,7 +79,6 @@ with col2:
 
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["1. Funcionários + Excel", "2. Modelo + Cargos + Feriados", "3. Calendário", "4. Gerar e Exportar", "5. Ver e Trocar Escala", "6. Sobre"])
 
-# 1. ABA FUNCIONÁRIOS
 with tab1:
     st.header("1. Importar Funcionários do Excel")
     st.info("Colunas: Nome | Cargo | Folgas_Semana")
@@ -106,7 +102,6 @@ with tab1:
         if nome: st.session_state.funcionarios[nome.title()] = {"cargo": cargo, "folgas_semana": folgas, "horas_mes": 0, "dias_trabalhados_seguidos": 0, "ultimo_dia_trabalhado": None, "ultimas_funcoes": []}
     if st.session_state.funcionarios: st.dataframe(pd.DataFrame.from_dict(st.session_state.funcionarios, orient='index'))
 
-# 2. ABA MODELO + CARGOS + FERIADOS
 with tab2:
     st.header("1. Adicionar Novo Cargo")
     col1, col2 = st.columns([3,1])
@@ -143,7 +138,6 @@ with tab2:
                     elif funcao in modelo_dia[dia_semana]: del modelo_dia[dia_semana][funcao]
     st.session_state.modelo_dia = modelo_dia
 
-# 3. LÓGICA DE GERAÇÃO
 def gerar_escala_mensal(ano, mes, modelo_dia, funcionarios, feriados):
     num_dias = calendar.monthrange(ano, mes)[1]
     escala_dict = defaultdict(lambda: defaultdict(list))
@@ -174,7 +168,6 @@ def gerar_escala_mensal(ano, mes, modelo_dia, funcionarios, feriados):
                 indice_func += 1
     return escala_dict
 
-# 4. VISUAL CALENDÁRIO
 with tab3:
     st.header("Visualização em Calendário")
     mes = st.selectbox("Mês", range(1,13), format_func=lambda x: calendar.month_name[x], key="mes_cal")
@@ -202,10 +195,8 @@ with tab3:
                                 if dia in st.session_state.escala_gerada:
                                     for funcao, pessoas in st.session_state.escala_gerada[dia].items(): st.caption(f"{funcao}: {', '.join(pessoas)}")
 
-# 5. PDF MENSAL + PDF DO DIA - CORRIGIDO V18.1
 class PDF(FPDF):
     titulo_cabecalho = ""
-
     def header(self):
         self.set_fill_color(255, 111, 0); self.set_text_color(255, 255, 255); self.set_font('Arial', 'B', 16)
         self.cell(0, 12, self.titulo_cabecalho, 0, 1, 'C', 1); self.set_text_color(0, 0, 0); self.ln(3)
@@ -214,7 +205,6 @@ def criar_pdf_mensal(escala, ano, mes, feriados):
     pdf = PDF(orientation='L', unit='mm', format='A4')
     pdf.titulo_cabecalho = f"{NOME_SUPERMERCADO} - ESCALA {calendar.month_name[mes].upper()} {ano}"
     pdf.add_page()
-
     largura_col = 40; altura_linha = 6; pdf.set_font("Arial", "B", 9); pdf.set_fill_color(255, 243, 224)
     for dia_sem in DIAS_SEMANA_CURTO: pdf.cell(largura_col, 8, dia_sem, 1, 0, "C", 1); pdf.ln()
     cal = calendar.monthcalendar(ano, mes); pdf.set_font("Arial", "", 7)
@@ -234,14 +224,13 @@ def criar_pdf_mensal(escala, ano, mes, feriados):
         max_altura = max(alturas); pdf.set_y(y_inicial + max_altura)
     pdf.set_y(-20); pdf.set_font('Arial', 'I', 8)
     pdf.cell(0, 10, f"Gerado em: {datetime.now().strftime('%d/%m/%Y')} | Desenvolvido por: {NOME_CRIADOR} - {CARGO_CRIADOR} | Assinatura Gerencia: ____________________", 0, 0, 'C')
-    return bytes(pdf.output()) # CORREÇÃO AQUI
+    return bytes(pdf.output())
 
 def criar_pdf_dia(escala, ano, mes, dia):
     pdf = PDF(orientation='P', unit='mm', format='A4')
     data_str = datetime(ano, mes, dia).strftime("%d/%m/%Y"); dia_semana = DIAS_SEMANA[datetime(ano, mes, dia).weekday()]
     pdf.titulo_cabecalho = f"ESCALA DO DIA - {dia} {dia_semana.upper()}"
     pdf.add_page()
-
     pdf.set_font("Arial", "B", 12); pdf.cell(0, 10, f"{NOME_SUPERMERCADO}", 0, 1, "C"); pdf.ln(5)
     if dia in escala:
         for funcao, pessoas in escala[dia].items():
@@ -250,9 +239,8 @@ def criar_pdf_dia(escala, ano, mes, dia):
     else: pdf.set_font("Arial", "", 12); pdf.cell(0, 10, "Sem funcionarios escalados.", 0, 1)
     pdf.set_y(-20); pdf.set_font('Arial', 'I', 8)
     pdf.cell(0, 10, f"Desenvolvido por: {NOME_CRIADOR} - {CARGO_CRIADOR} | Assinatura Enc: ____________________", 0, 0, 'L')
-    return bytes(pdf.output()) # CORREÇÃO AQUI
+    return bytes(pdf.output())
 
-# 6. ABA GERAR E EXPORTAR
 with tab4:
     st.header("Exportar para Imprimir")
     if 'escala_gerada' in st.session_state:
@@ -269,12 +257,17 @@ with tab4:
             for funcao, pessoas in funcoes.items():
                 for pessoa in pessoas: dados_excel.append({"Dia": dia, "Data": datetime(ano, mes, dia).strftime("%d/%m/%Y"), "Funcao": funcao, "Funcionario": pessoa})
         df_export = pd.DataFrame(dados_excel)
-        st.download_button("📊 Baixar Excel da Escala", df_export.to_excel(index=False), f"escala_excel_{mes}_{ano}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+        # CORREÇÃO V18.2
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df_export.to_excel(writer, index=False)
+        st.download_button("📊 Baixar Excel da Escala", output.getvalue(), f"escala_excel_{mes}_{ano}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
         st.divider(); st.header("Resumo de Horas")
         df_horas = pd.DataFrame.from_dict(st.session_state.funcs_resumo, orient='index')[['cargo', 'horas_mes']]; st.dataframe(df_horas)
     else: st.warning("Gere o calendário primeiro na aba 3")
 
-# 7. ABA: VER E TROCAR ESCALA + HISTÓRICO COM MOTIVO
 with tab5:
     st.header("Consultar e Trocar Funcionários por Dia")
     if 'escala_gerada' in st.session_state:
@@ -323,7 +316,13 @@ with tab5:
             if st.session_state.historico_trocas:
                 df_hist = pd.DataFrame(st.session_state.historico_trocas)
                 st.dataframe(df_hist, use_container_width=True)
-                st.download_button("📊 Baixar Histórico em Excel", df_hist.to_excel(index=False), f"historico_trocas_{mes}_{ano}.xlsx")
+
+                # CORREÇÃO V18.2 PARA HISTORICO TAMBEM
+                output_hist = io.BytesIO()
+                with pd.ExcelWriter(output_hist, engine='openpyxl') as writer:
+                    df_hist.to_excel(writer, index=False)
+                st.download_button("📊 Baixar Histórico em Excel", output_hist.getvalue(), f"historico_trocas_{mes}_{ano}.xlsx")
+
                 if st.button("Limpar Histórico"):
                     st.session_state.historico_trocas = []
                     st.rerun()
@@ -332,32 +331,15 @@ with tab5:
         else: st.info("Nenhum funcionário escalado para este dia.")
     else: st.warning("Gere o calendário primeiro na aba 3")
 
-# 8. ABA SOBRE
 with tab6:
     st.header("Sobre o Sistema")
     st.markdown(f"""
     ### {NOME_SUPERMERCADO}
     **Sistema de Gerenciamento de Escala Mensal**
+    **Versão:** 18.2 - Corrigido Excel + PDF
 
-    **Versão:** 18.1 - Corrigido para Web Cloud
+    **Desenvolvido por:** {NOME_CRIADOR} - {CARGO_CRIADOR}
 
-    ---
-    ### **Desenvolvimento**
-    **Nome:** {NOME_CRIADOR}
-    **Cargo:** {CARGO_CRIADOR}
-
-    Sistema desenvolvido para otimizar a criação e gestão de escalas de trabalho do supermercado.
-
-    **Funcionalidades:**
-    - Geração automática de escala mensal
-    - Salvar e Carregar dados
-    - Marcação de feriados
-    - Modelo por dia da semana
-    - Troca rápida de funcionários
-    - Histórico de trocas com motivo
-    - Exportação em PDF e Excel
-
-    ---
     <div class="footer">
     © 2026 {NOME_SUPERMERCADO} - Todos os direitos reservados
     </div>
