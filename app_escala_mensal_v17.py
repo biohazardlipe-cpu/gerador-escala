@@ -201,19 +201,20 @@ class PDF(FPDF):
         self.set_fill_color(255, 111, 0); self.set_text_color(255, 255, 255); self.set_font('Arial', 'B', 14)
         self.cell(0, 10, self.titulo_cabecalho, 0, 1, 'C', 1); self.set_text_color(0, 0, 0); self.ln(2)
 
-# FUNÇÃO PDF NOVA - MODELO CALENDÁRIO
+# PDF CALENDARIO EM 1 FOLHA ALINHADO
 def criar_pdf_mensal(escala, ano, mes, feriados):
     pdf = PDF(orientation='L', unit='mm', format='A4')
     pdf.titulo_cabecalho = f"{NOME_SUPERMERCADO} - ESCALA {calendar.month_name[mes].upper()} {ano}"
     pdf.add_page()
 
-    largura_total = 277 # A4 paisagem menos margens
+    margem = 10
+    largura_total = 297 - margem*2
     largura_col = largura_total / 7
-    altura_cabecalho = 8
-    altura_min_dia = 35
+    altura_cabecalho = 7
+    altura_min_dia = 28
 
     # CABECALHO DIAS DA SEMANA
-    pdf.set_font("Arial", "B", 9); pdf.set_fill_color(255, 243, 224)
+    pdf.set_font("Arial", "B", 10); pdf.set_fill_color(255, 243, 224)
     for dia_sem in DIAS_SEMANA_CURTO:
         pdf.cell(largura_col, altura_cabecalho, dia_sem, 1, 0, "C", 1)
     pdf.ln()
@@ -223,37 +224,55 @@ def criar_pdf_mensal(escala, ano, mes, feriados):
 
     for semana in cal:
         y_inicial = pdf.get_y()
-        alturas_coluna = [altura_min_dia] * 7
+        conteudo_semana = []
+        max_linhas = 0
 
-        # PRIMEIRO PASSO: DESENHAR O CONTEUDO E CALCULAR ALTURA
+        # 1. MONTAR TEXTO E CALCULAR LINHAS
         for i, dia in enumerate(semana):
-            pdf.set_xy(10 + i*largura_col, y_inicial)
             if dia == 0:
-                pdf.cell(largura_col, altura_min_dia, "", 1)
+                conteudo_semana.append("")
             else:
                 data_str = datetime(ano, mes, dia).strftime("%d/%m/%Y")
-                txt = f"{dia}\n" # Numero do dia grande
+                linhas = [f"{dia}"]
 
                 if data_str in feriados:
-                    pdf.set_fill_color(255,100,100); pdf.set_text_color(255,255,255)
-                    pdf.multi_cell(largura_col, 5, f"{dia}\nFERIADO\nFECHADO", 1, "L", 1)
-                    pdf.set_text_color(0,0,0); pdf.set_fill_color(255,255,255)
+                    linhas.append("FERIADO")
+                    linhas.append("FECHADO")
                 elif dia in escala:
                     for funcao, pessoas in escala[dia].items():
-                        txt += f"{funcao}:\n" + ", ".join(pessoas) + "\n"
-                    pdf.multi_cell(largura_col, 4, txt, 1)
-                else:
-                    pdf.multi_cell(largura_col, 4, txt, 1)
+                        linhas.append(f"{funcao}:")
+                        nomes = ", ".join(pessoas)
+                        # Quebra linha se for muito grande
+                        while len(nomes) > 28:
+                            linhas.append(nomes[:28])
+                            nomes = nomes[28:]
+                        if nomes: linhas.append(nomes)
 
-                alturas_coluna[i] = pdf.get_y() - y_inicial
+                conteudo_semana.append(linhas)
+                if len(linhas) > max_linhas: max_linhas = len(linhas)
 
-        # SEGUNDO PASSO: AJUSTAR ALTURA DA LINHA
-        max_altura = max(alturas_coluna)
-        if max_altura < altura_min_dia: max_altura = altura_min_dia
-        pdf.set_y(y_inicial + max_altura)
+        # 2. ALTURA DA SEMANA
+        altura_linha = max(altura_min_dia, max_linhas * 4.2)
 
-    pdf.set_y(-20); pdf.set_font('Arial', 'I', 8)
-    pdf.cell(0, 10, f"Gerado em: {datetime.now().strftime('%d/%m/%Y')} | Desenvolvido por: {NOME_CRIADOR} - {CARGO_CRIADOR} | Assinatura Gerencia: ____________________", 0, 0, 'C')
+        # 3. DESENHAR TODAS COM MESMA ALTURA
+        for i in range(7):
+            pdf.set_xy(margem + i*largura_col, y_inicial)
+            data_str = ""
+            if semana[i]!= 0: data_str = datetime(ano, mes, semana[i]).strftime("%d/%m/%Y")
+
+            if semana[i] == 0:
+                pdf.cell(largura_col, altura_linha, "", 1)
+            elif data_str in feriados:
+                pdf.set_fill_color(255,100,100); pdf.set_text_color(255,255,255)
+                pdf.multi_cell(largura_col, altura_linha/max(1,max_linhas), "\n".join(conteudo_semana[i]), 1, "C", 1)
+                pdf.set_text_color(0,0,0); pdf.set_fill_color(255,255,255)
+            else:
+                pdf.multi_cell(largura_col, 4.2, "\n".join(conteudo_semana[i]), 1, "L")
+
+        pdf.set_y(y_inicial + altura_linha)
+
+    pdf.set_y(-15); pdf.set_font('Arial', 'I', 8)
+    pdf.cell(0, 10, f"Gerado em: {datetime.now().strftime('%d/%m/%Y')} | Desenvolvido por: {NOME_CRIADOR} - {CARGO_CRIADOR}", 0, 0, 'C')
     return bytes(pdf.output())
 
 def criar_pdf_dia(escala, ano, mes, dia):
@@ -281,7 +300,7 @@ with tab4:
         with col1:
             pdf_mensal = criar_pdf_mensal(st.session_state.escala_gerada, ano, mes, st.session_state.feriados)
             st.download_button(
-                label="📄 Baixar PDF Mensal - Modelo Calendario",
+                label="📄 Baixar PDF Mensal - Calendario",
                 data=pdf_mensal,
                 file_name=f"ESCALA_MENSAL_{mes}_{ano}.pdf",
                 mime="application/pdf",
@@ -377,7 +396,7 @@ with tab6:
     st.markdown(f"""
     ### {NOME_SUPERMERCADO}
     **Sistema de Gerenciamento de Escala Mensal**
-    **Versão:** 18.4 - PDF Modelo Calendario
+    **Versão:** 18.5 - PDF Calendario 1 Folha
 
     **Desenvolvido por:** {NOME_CRIADOR} - {CARGO_CRIADOR}
 
