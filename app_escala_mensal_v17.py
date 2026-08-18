@@ -11,7 +11,7 @@ from fpdf import FPDF
 NOME_SUPERMERCADO = "Supermercado Economico"
 NOME_CRIADOR = "Felipe Silva"
 CARGO_CRIADOR = "Responsável Setor T.I"
-ARQUIVO_DADOS = "dados_escala.json" # Arquivo onde salva tudo
+ARQUIVO_DADOS = "dados_escala.json"
 COR_PRINCIPAL = "#FF6F00" # Laranja
 COR_FUNDO = "#FFFFFF" # Branco
 
@@ -202,18 +202,16 @@ with tab3:
                                 if dia in st.session_state.escala_gerada:
                                     for funcao, pessoas in st.session_state.escala_gerada[dia].items(): st.caption(f"{funcao}: {', '.join(pessoas)}")
 
-# 5. PDF MENSAL + PDF DO DIA COM CRÉDITOS - CORRIGIDO V18
+# 5. PDF MENSAL + PDF DO DIA - CORRIGIDO V18.1
 class PDF(FPDF):
-    titulo_cabecalho = "" # CORREÇÃO: guarda o titulo aqui
+    titulo_cabecalho = ""
 
     def header(self):
-        # CORREÇÃO: header sem parametro
         self.set_fill_color(255, 111, 0); self.set_text_color(255, 255, 255); self.set_font('Arial', 'B', 16)
         self.cell(0, 12, self.titulo_cabecalho, 0, 1, 'C', 1); self.set_text_color(0, 0, 0); self.ln(3)
 
 def criar_pdf_mensal(escala, ano, mes, feriados):
     pdf = PDF(orientation='L', unit='mm', format='A4')
-    # CORREÇÃO: define o titulo antes do add_page
     pdf.titulo_cabecalho = f"{NOME_SUPERMERCADO} - ESCALA {calendar.month_name[mes].upper()} {ano}"
     pdf.add_page()
 
@@ -235,13 +233,12 @@ def criar_pdf_mensal(escala, ano, mes, feriados):
                 pdf.multi_cell(largura_col, altura_linha, txt, 1); alturas[i] = pdf.get_y() - y_inicial
         max_altura = max(alturas); pdf.set_y(y_inicial + max_altura)
     pdf.set_y(-20); pdf.set_font('Arial', 'I', 8)
-    pdf.cell(0, 10, f"Gerado em: {datetime.now().strftime('%d/%m/%Y')} | Desenvolvido por: {NOME_CRIADOR} - {CARGO_CRIADOR} | Assinatura Gerência: ____________________", 0, 0, 'C')
-    return pdf.output(dest="S").encode("latin-1")
+    pdf.cell(0, 10, f"Gerado em: {datetime.now().strftime('%d/%m/%Y')} | Desenvolvido por: {NOME_CRIADOR} - {CARGO_CRIADOR} | Assinatura Gerencia: ____________________", 0, 0, 'C')
+    return bytes(pdf.output()) # CORREÇÃO AQUI
 
 def criar_pdf_dia(escala, ano, mes, dia):
     pdf = PDF(orientation='P', unit='mm', format='A4')
     data_str = datetime(ano, mes, dia).strftime("%d/%m/%Y"); dia_semana = DIAS_SEMANA[datetime(ano, mes, dia).weekday()]
-    # CORREÇÃO: define o titulo antes do add_page
     pdf.titulo_cabecalho = f"ESCALA DO DIA - {dia} {dia_semana.upper()}"
     pdf.add_page()
 
@@ -250,10 +247,10 @@ def criar_pdf_dia(escala, ano, mes, dia):
         for funcao, pessoas in escala[dia].items():
             pdf.set_font("Arial", "B", 11); pdf.cell(0, 8, f"{funcao}:", 0, 1); pdf.set_font("Arial", "", 10)
             for p in pessoas: pdf.cell(0, 6, f" - {p}", 0, 1); pdf.ln(2)
-    else: pdf.set_font("Arial", "", 12); pdf.cell(0, 10, "Sem funcionários escalados.", 0, 1)
+    else: pdf.set_font("Arial", "", 12); pdf.cell(0, 10, "Sem funcionarios escalados.", 0, 1)
     pdf.set_y(-20); pdf.set_font('Arial', 'I', 8)
     pdf.cell(0, 10, f"Desenvolvido por: {NOME_CRIADOR} - {CARGO_CRIADOR} | Assinatura Enc: ____________________", 0, 0, 'L')
-    return pdf.output(dest="S").encode("latin-1")
+    return bytes(pdf.output()) # CORREÇÃO AQUI
 
 # 6. ABA GERAR E EXPORTAR
 with tab4:
@@ -342,7 +339,7 @@ with tab6:
     ### {NOME_SUPERMERCADO}
     **Sistema de Gerenciamento de Escala Mensal**
 
-    **Versão:** 18.0 - Corrigido para Web
+    **Versão:** 18.1 - Corrigido para Web Cloud
 
     ---
     ### **Desenvolvimento**
