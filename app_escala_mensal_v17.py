@@ -3,7 +3,7 @@ import pandas as pd
 import calendar
 import json
 import os
-import io # ADICIONADO
+import io
 from datetime import datetime
 from collections import defaultdict
 from fpdf import FPDF
@@ -241,31 +241,51 @@ def criar_pdf_dia(escala, ano, mes, dia):
     pdf.cell(0, 10, f"Desenvolvido por: {NOME_CRIADOR} - {CARGO_CRIADOR} | Assinatura Enc: ____________________", 0, 0, 'L')
     return bytes(pdf.output())
 
+# ABA 4: GERAR E EXPORTAR - COM PDF MENSAL EM DESTAQUE
 with tab4:
-    st.header("Exportar para Imprimir")
+    st.header("📤 Exportar Escala")
     if 'escala_gerada' in st.session_state:
         mes = st.session_state.mes_gerado; ano = st.session_state.ano_gerado
-        pdf_mensal = criar_pdf_mensal(st.session_state.escala_gerada, ano, mes, st.session_state.feriados)
-        st.download_button("📄 Baixar PDF Mensal - Quadro de Avisos", pdf_mensal, f"escala_mensal_{mes}_{ano}.pdf", "application/pdf")
-        st.divider(); st.header("Exportar Escala do Dia")
+
+        st.success(f"Escala de {calendar.month_name[mes]} de {ano} gerada!")
+
+        # BOTÃO PDF MENSAL EM DESTAQUE
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            pdf_mensal = criar_pdf_mensal(st.session_state.escala_gerada, ano, mes, st.session_state.feriados)
+            st.download_button(
+                label="📄 Baixar PDF Mensal Completo",
+                data=pdf_mensal,
+                file_name=f"ESCALA_MENSAL_{mes}_{ano}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+
+        st.divider()
+
+        # EXPORTAR PDF DO DIA
+        st.subheader("Exportar Escala do Dia")
         dia_export = st.selectbox("Selecione o dia", range(1, calendar.monthrange(ano, mes)[1]+1))
         pdf_dia = criar_pdf_dia(st.session_state.escala_gerada, ano, mes, dia_export)
         st.download_button(f"📄 Baixar PDF do Dia {dia_export}", pdf_dia, f"escala_dia_{dia_export}_{mes}_{ano}.pdf", "application/pdf")
-        st.divider(); st.header("Exportar Planilha Excel")
+
+        st.divider()
+        # EXPORTAR EXCEL
+        st.subheader("Exportar Planilha Excel")
         dados_excel = []
         for dia, funcoes in st.session_state.escala_gerada.items():
             for funcao, pessoas in funcoes.items():
                 for pessoa in pessoas: dados_excel.append({"Dia": dia, "Data": datetime(ano, mes, dia).strftime("%d/%m/%Y"), "Funcao": funcao, "Funcionario": pessoa})
         df_export = pd.DataFrame(dados_excel)
-
-        # CORREÇÃO V18.2
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df_export.to_excel(writer, index=False)
         st.download_button("📊 Baixar Excel da Escala", output.getvalue(), f"escala_excel_{mes}_{ano}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-        st.divider(); st.header("Resumo de Horas")
-        df_horas = pd.DataFrame.from_dict(st.session_state.funcs_resumo, orient='index')[['cargo', 'horas_mes']]; st.dataframe(df_horas)
+        st.divider()
+        st.subheader("Resumo de Horas")
+        df_horas = pd.DataFrame.from_dict(st.session_state.funcs_resumo, orient='index')[['cargo', 'horas_mes']]
+        st.dataframe(df_horas)
     else: st.warning("Gere o calendário primeiro na aba 3")
 
 with tab5:
@@ -316,13 +336,10 @@ with tab5:
             if st.session_state.historico_trocas:
                 df_hist = pd.DataFrame(st.session_state.historico_trocas)
                 st.dataframe(df_hist, use_container_width=True)
-
-                # CORREÇÃO V18.2 PARA HISTORICO TAMBEM
                 output_hist = io.BytesIO()
                 with pd.ExcelWriter(output_hist, engine='openpyxl') as writer:
                     df_hist.to_excel(writer, index=False)
                 st.download_button("📊 Baixar Histórico em Excel", output_hist.getvalue(), f"historico_trocas_{mes}_{ano}.xlsx")
-
                 if st.button("Limpar Histórico"):
                     st.session_state.historico_trocas = []
                     st.rerun()
@@ -336,7 +353,7 @@ with tab6:
     st.markdown(f"""
     ### {NOME_SUPERMERCADO}
     **Sistema de Gerenciamento de Escala Mensal**
-    **Versão:** 18.2 - Corrigido Excel + PDF
+    **Versão:** 18.3 - Com Export PDF Mensal
 
     **Desenvolvido por:** {NOME_CRIADOR} - {CARGO_CRIADOR}
 
