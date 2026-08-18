@@ -202,15 +202,21 @@ with tab3:
                                 if dia in st.session_state.escala_gerada:
                                     for funcao, pessoas in st.session_state.escala_gerada[dia].items(): st.caption(f"{funcao}: {', '.join(pessoas)}")
 
-# 5. PDF MENSAL + PDF DO DIA COM CRÉDITOS
+# 5. PDF MENSAL + PDF DO DIA COM CRÉDITOS - CORRIGIDO V18
 class PDF(FPDF):
-    def header(self, titulo):
+    titulo_cabecalho = "" # CORREÇÃO: guarda o titulo aqui
+
+    def header(self):
+        # CORREÇÃO: header sem parametro
         self.set_fill_color(255, 111, 0); self.set_text_color(255, 255, 255); self.set_font('Arial', 'B', 16)
-        self.cell(0, 12, titulo, 0, 1, 'C', 1); self.set_text_color(0, 0, 0); self.ln(3)
+        self.cell(0, 12, self.titulo_cabecalho, 0, 1, 'C', 1); self.set_text_color(0, 0, 0); self.ln(3)
 
 def criar_pdf_mensal(escala, ano, mes, feriados):
-    pdf = PDF(orientation='L', unit='mm', format='A4'); pdf.add_page()
-    titulo = f"{NOME_SUPERMERCADO} - ESCALA {calendar.month_name[mes].upper()} {ano}"; pdf.header(titulo)
+    pdf = PDF(orientation='L', unit='mm', format='A4')
+    # CORREÇÃO: define o titulo antes do add_page
+    pdf.titulo_cabecalho = f"{NOME_SUPERMERCADO} - ESCALA {calendar.month_name[mes].upper()} {ano}"
+    pdf.add_page()
+
     largura_col = 40; altura_linha = 6; pdf.set_font("Arial", "B", 9); pdf.set_fill_color(255, 243, 224)
     for dia_sem in DIAS_SEMANA_CURTO: pdf.cell(largura_col, 8, dia_sem, 1, 0, "C", 1); pdf.ln()
     cal = calendar.monthcalendar(ano, mes); pdf.set_font("Arial", "", 7)
@@ -233,9 +239,12 @@ def criar_pdf_mensal(escala, ano, mes, feriados):
     return pdf.output(dest="S").encode("latin-1")
 
 def criar_pdf_dia(escala, ano, mes, dia):
-    pdf = PDF(orientation='P', unit='mm', format='A4'); pdf.add_page()
+    pdf = PDF(orientation='P', unit='mm', format='A4')
     data_str = datetime(ano, mes, dia).strftime("%d/%m/%Y"); dia_semana = DIAS_SEMANA[datetime(ano, mes, dia).weekday()]
-    titulo = f"ESCALA DO DIA - {dia} {dia_semana.upper()}"; pdf.header(titulo)
+    # CORREÇÃO: define o titulo antes do add_page
+    pdf.titulo_cabecalho = f"ESCALA DO DIA - {dia} {dia_semana.upper()}"
+    pdf.add_page()
+
     pdf.set_font("Arial", "B", 12); pdf.cell(0, 10, f"{NOME_SUPERMERCADO}", 0, 1, "C"); pdf.ln(5)
     if dia in escala:
         for funcao, pessoas in escala[dia].items():
@@ -333,7 +342,7 @@ with tab6:
     ### {NOME_SUPERMERCADO}
     **Sistema de Gerenciamento de Escala Mensal**
 
-    **Versão:** 17.0
+    **Versão:** 18.0 - Corrigido para Web
 
     ---
     ### **Desenvolvimento**
